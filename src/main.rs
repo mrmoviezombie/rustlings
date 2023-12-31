@@ -61,6 +61,10 @@ enum Subcommands {
         /// The name of the exercise
         name: String,
     },
+    Explain {
+        /// The an error message
+        error: String,
+    },
     /// List the exercises available in Rustlings
     List {
         /// Show only the paths of the exercises
@@ -197,6 +201,12 @@ fn main() {
             println!("{}", exercise.hint);
         }
 
+        Subcommands::Explain { error } => {
+            if let Err(e) = Command::new("rustc").args(vec!["--explain",&error]).status() {
+                println!("failed to explain `{}`: {}", error, e);
+            }
+        }
+
         Subcommands::Verify => {
             verify(&exercises, (0, exercises.len()), verbose, false)
                 .unwrap_or_else(|_| std::process::exit(1));
@@ -267,14 +277,23 @@ fn spawn_watch_shell(
                     println!("Bye!");
                 } else if input.eq("help") {
                     println!("Commands available to you in watch mode:");
-                    println!("  hint   - prints the current exercise's hint");
-                    println!("  clear  - clears the screen");
-                    println!("  quit   - quits watch mode");
-                    println!("  !<cmd> - executes a command, like `!rustc --explain E0381`");
-                    println!("  help   - displays this help message");
+                    println!("  hint    - prints the current exercise's hint");
+                    println!("  explain - prints the explanation of the current error(s), like `E0381`");
+                    println!("  clear   - clears the screen");
+                    println!("  quit    - quits watch mode");
+                    println!("  !<cmd>  - executes a command, like `!rustc --explain E0381`");
+                    println!("  help    - displays this help message");
                     println!();
                     println!("Watch mode automatically re-evaluates the current exercise");
                     println!("when you edit a file's contents.")
+                } else if let Some(explain) =
+                        input.strip_prefix("explain")
+                            .or_else(|| {
+                                input.strip_prefix("E").and_then(|s| { if s.parse::<u64>().is_ok() { Some(input) } else { None } })
+                            }) {
+                    if let Err(e) = Command::new("rustc").args(vec!["--explain",explain.trim()]).status() {
+                        println!("failed to explain `{}`: {}", explain, e);
+                    }
                 } else if let Some(cmd) = input.strip_prefix('!') {
                     let parts: Vec<&str> = cmd.split_whitespace().collect();
                     if parts.is_empty() {
